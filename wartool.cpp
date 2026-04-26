@@ -39,6 +39,45 @@
 #include "wargus.h"
 #include "wartool.h"
 #include <stratagus-gameutils.h>
+#include <stdexcept>
+#include <signal.h>
+#include <setjmp.h>
+
+// Demo-mode SIGSEGV/SIGBUS recovery: when extracting a corrupt/missing entry
+// from the WAR2 v1.08 shareware demo causes a fault in the conversion code,
+// jump back to the Todo[] loop and skip the offender.
+static sigjmp_buf DemoFaultJmp;
+static volatile sig_atomic_t DemoFaultArmed = 0;
+static void demo_fault_handler(int sig)
+{
+	if (DemoFaultArmed) {
+		DemoFaultArmed = 0;
+		siglongjmp(DemoFaultJmp, sig);
+	}
+	signal(sig, SIG_DFL);
+	raise(sig);
+}
+
+// Demo mode: when true, error() throws instead of calling the blocking
+// tinyfd_messageBox dialog. The Todo[] dispatcher catches and continues so
+// missing/unsupported entries in the WAR2 v1.08 shareware demo are skipped
+// rather than aborting extraction.
+static bool DemoMode = false;
+[[noreturn]] inline void demo_error_throw(const char *title, const char *text)
+{
+	throw std::runtime_error(std::string(title) + ": " + text);
+}
+[[noreturn]] inline void error_dispatch(const char *title, const char *text)
+{
+	if (DemoMode) {
+		fflush(stdout);
+		fprintf(stderr, "[demo-skip] %s: %s\n", title, text);
+		fflush(stderr);
+		demo_error_throw(title, text);
+	}
+	(error)(title, text);
+}
+#define error(title, text) error_dispatch((title), (text))
 
 #if defined(_MSC_VER) || defined(WIN32)
 #include <windows.h>
@@ -88,9 +127,34 @@ static unsigned char* ArchiveBuffer;
 static unsigned char** ArchiveOffsets;
 
 /**
+**  Number of entries in current archive (demo bounds check).
+*/
+static int ArchiveEntryCount;
+
+/**
 **  Fake empty entry
 */
 static unsigned int EmptyEntry[] = { 1, 1, 1 };
+
+/**
+**  Bounds-checked archive entry accessor for demo mode: returns EmptyEntry
+**  sentinel when index is out of range so callers don't dereference garbage.
+*/
+static inline unsigned char* SafeOffset(int idx)
+{
+	if (idx < 0 || idx >= ArchiveEntryCount) {
+		return (unsigned char *)&EmptyEntry;
+	}
+	return ArchiveOffsets[idx];
+}
+
+// Demo mode: true when the requested entry index is missing or the archive
+// already substituted the EmptyEntry sentinel for it (corrupt offset/length).
+static inline bool DemoEntryMissing(int idx)
+{
+	if (idx < 0 || idx >= ArchiveEntryCount) return true;
+	return ArchiveOffsets[idx] == (unsigned char *)&EmptyEntry;
+}
 
 static char* ArchiveDir;
 
@@ -392,6 +456,7 @@ int OpenArchive(const char* file, int type)
 
 	ArchiveOffsets = op;
 	ArchiveBuffer = buf;
+	ArchiveEntryCount = entries;
 
 	return 0;
 }
@@ -596,7 +661,7 @@ int ConvertRgb(const char* file, int rgbe)
 	int i;
 	size_t l;
 
-	rgbp = ExtractEntry(ArchiveOffsets[rgbe], &l);
+	rgbp = ExtractEntry(SafeOffset(rgbe), &l);
 	ConvertPalette(rgbp);
 
 	//
@@ -849,10 +914,10 @@ int ConvertTileset(const char* file, int pale, int mege, int mine, int mape)
 	size_t megl;
 	char buf[8192] = {'\0'};
 
-	palp = ExtractEntry(ArchiveOffsets[pale], NULL);
-	megp = ExtractEntry(ArchiveOffsets[mege], &megl);
-	minp = ExtractEntry(ArchiveOffsets[mine], NULL);
-	mapp = ExtractEntry(ArchiveOffsets[mape], NULL);
+	palp = ExtractEntry(SafeOffset(pale), NULL);
+	megp = ExtractEntry(SafeOffset(mege), &megl);
+	minp = ExtractEntry(SafeOffset(mine), NULL);
+	mapp = ExtractEntry(SafeOffset(mape), NULL);
 
 //	printf("%s:\t", file);
 	image = ConvertTile(minp, megp, megl, mapp, &w, &h);
@@ -1140,10 +1205,10 @@ int ConvertGfx(const char* file, int pale, int gfxe, int gfxe2, int start2)
 	int h;
 	char buf[1024];
 
-	palp = ExtractEntry(ArchiveOffsets[pale], NULL);
-	gfxp = ExtractEntry(ArchiveOffsets[gfxe], NULL);
+	palp = ExtractEntry(SafeOffset(pale), NULL);
+	gfxp = ExtractEntry(SafeOffset(gfxe), NULL);
 	if (gfxe2) {
-		gfxp2 = ExtractEntry(ArchiveOffsets[gfxe2], NULL);
+		gfxp2 = ExtractEntry(SafeOffset(gfxe2), NULL);
 	} else {
 		gfxp2 = NULL;
 	}
@@ -1179,8 +1244,8 @@ int ConvertGfu(const char* file,int pale,int gfue)
 	int h;
 	char buf[8192] = {'\0'};
 
-	palp = ExtractEntry(ArchiveOffsets[pale], NULL);
-	gfup = ExtractEntry(ArchiveOffsets[gfue], NULL);
+	palp = ExtractEntry(SafeOffset(pale), NULL);
+	gfup = ExtractEntry(SafeOffset(gfue), NULL);
 
 	image = ConvertGraphic(0, gfup, &w, &h, NULL, 0);
 
@@ -1211,8 +1276,8 @@ int ConvertGroupedGfu(const char *path, int pale, int gfue, int glist)
 	int i;
 	const GroupedGraphic *gg;
 
-	palp = ExtractEntry(ArchiveOffsets[pale], NULL);
-	gfup = ExtractEntry(ArchiveOffsets[gfue], NULL);
+	palp = ExtractEntry(SafeOffset(pale), NULL);
+	gfup = ExtractEntry(SafeOffset(gfue), NULL);
 
 	image = ConvertGraphic(0, gfup, &w, &h, NULL, 0);
 
@@ -1230,7 +1295,7 @@ int ConvertGroupedGfu(const char *path, int pale, int gfue, int glist)
 		// hack for multiple palettes
 		if (i == 3 && strstr(path, "widgets")) {
 			free(palp);
-			palp = ExtractEntry(ArchiveOffsets[14], NULL);
+			palp = ExtractEntry(SafeOffset(14), NULL);
 			ConvertPalette(palp);
 		}
 
@@ -1259,7 +1324,7 @@ void ConvertPud(const char* file, int pude, bool justconvert = false)
 	size_t l;
 
 	if (justconvert == false) {
-		pudp = ExtractEntry(ArchiveOffsets[pude], &l);
+		pudp = ExtractEntry(SafeOffset(pude), &l);
 
 		sprintf(buf, "%s/%s/%s", Dir, PUD_PATH, file);
 		CheckPath(buf);
@@ -1533,8 +1598,8 @@ int ConvertFont(const char* file, int pale, int fnte)
 	int h;
 	char buf[8192] = {'\0'};
 
-	palp = ExtractEntry(ArchiveOffsets[pale], NULL);
-	fntp = ExtractEntry(ArchiveOffsets[fnte], NULL);
+	palp = ExtractEntry(SafeOffset(pale), NULL);
+	fntp = ExtractEntry(SafeOffset(fnte), NULL);
 
 	image = ConvertFnt(fntp, &w, &h);
 
@@ -1647,11 +1712,11 @@ int ConvertImage(const char* file, int pale, int imge, int nw, int nh)
 		}
 	}
 
-	palp = ExtractEntry(ArchiveOffsets[pale], NULL);
+	palp = ExtractEntry(SafeOffset(pale), NULL);
 	if (pale == 27 && imge == 28) {
 		Pal27 = palp;
 	}
-	imgp = ExtractEntry(ArchiveOffsets[imge], NULL);
+	imgp = ExtractEntry(SafeOffset(imge), NULL);
 
 	image = ConvertImg(imgp, &w, &h);
 
@@ -1736,9 +1801,9 @@ int ConvertCursor(const char* file, int pale, int cure)
 	if (pale == 27 && cure == 314 && Pal27 ) { // Credits arrow (Blue arrow NW)
 		palp = Pal27;
 	} else {
-		palp = ExtractEntry(ArchiveOffsets[pale], NULL);
+		palp = ExtractEntry(SafeOffset(pale), NULL);
 	}
-	curp = ExtractEntry(ArchiveOffsets[cure], NULL);
+	curp = ExtractEntry(SafeOffset(cure), NULL);
 
 	image = ConvertCur(curp, &w, &h);
 
@@ -1771,7 +1836,7 @@ int ConvertWav(const char* file, int wave)
 	gzFile gf;
 	size_t l;
 
-	wavp = ExtractEntry(ArchiveOffsets[wave], &l);
+	wavp = ExtractEntry(SafeOffset(wave), &l);
 
 	sprintf(buf, "%s/%s/%s.wav.gz", Dir, SOUND_PATH, file);
 	CheckPath(buf);
@@ -1809,7 +1874,7 @@ int ConvertXmi(const char* file, int xmi)
 	size_t xmil;
 	size_t midl;
 
-	xmip = ExtractEntry(ArchiveOffsets[xmi], &xmil);
+	xmip = ExtractEntry(SafeOffset(xmi), &xmil);
 	midp = TranscodeXmiToMid(xmip, xmil, &midl);
 	free(xmip);
 
@@ -2015,7 +2080,7 @@ int ConvertVideo(const char* file, int video, bool justconvert = false)
 	CheckPath(outputfile);
 
 	if (justconvert == false) {
-		vidp = ExtractEntry(ArchiveOffsets[video], &l);
+		vidp = ExtractEntry(SafeOffset(video), &l);
 
 		f = fopen(buf, "wb");
 		if (!f) {
@@ -2266,7 +2331,7 @@ int ConvertText(const char* file, int txte, int ofs)
 		txte += 6;
 	}
 
-	txtp = ExtractEntry(ArchiveOffsets[txte], &l);
+	txtp = ExtractEntry(SafeOffset(txte), &l);
 
 	sprintf(buf, "%s/%s/%s.txt.gz", Dir, TEXT_PATH, file);
 	CheckPath(buf);
@@ -2301,7 +2366,7 @@ int SetupNames(const char* file __attribute__((unused)), int txte __attribute__(
 	unsigned u;
 	unsigned n;
 
-	//txtp = ExtractEntry(ArchiveOffsets[txte], &l);
+	//txtp = ExtractEntry(SafeOffset(txte), &l);
 	txtp = Names;
 	mp = (const unsigned short*)txtp;
 
@@ -2510,7 +2575,7 @@ int CampaignsCreate(const char* file __attribute__((unused)), int txte, int ofs)
 		}
 	}
 
-	objectives = ExtractEntry(ArchiveOffsets[txte], &l);
+	objectives = ExtractEntry(SafeOffset(txte), &l);
 	if (!objectives) {
 		printf("Objectives allocation failed\n");
 		error("Memory error", "Could not allocate enough memory to read archive.");
@@ -2888,6 +2953,7 @@ int main(int argc, char** argv)
 				printf("Detected WAR2 v1.08 shareware demo\n");
 				fflush(stdout);
 				CDType |= CD_DEMO | CD_US;
+				DemoMode = true;
 				expansion_cd = 0;
 				goto cd_detection_done;
 			}
@@ -3002,7 +3068,37 @@ cd_detection_done:
 	printf("Please be patient, the data may take a couple of minutes to extract...\n");
 	fflush(stdout);
 
+	if (DemoMode) {
+		struct sigaction sa;
+		sa.sa_handler = demo_fault_handler;
+		sigemptyset(&sa.sa_mask);
+		sa.sa_flags = 0;
+		sigaction(SIGSEGV, &sa, NULL);
+		sigaction(SIGBUS, &sa, NULL);
+	}
 	for (u = 0; u < sizeof(Todo) / sizeof(*Todo); ++u) {
+	  // Drain stdio buffers + emit a per-iteration trace before the SIGSEGV
+	  // recovery point, so a longjmp out of corrupt entry processing can't
+	  // strand a half-written line and so progress is visible in the log.
+	  if (DemoMode) {
+		fprintf(stderr, "[iter] u=%d type=%d file=\"%s\"\n",
+			u, Todo[u].Type, Todo[u].File ? Todo[u].File : "");
+		fflush(stdout); fflush(stderr);
+	  }
+	  int fault_sig = 0;
+	  if (DemoMode) {
+		fault_sig = sigsetjmp(DemoFaultJmp, 1);
+		if (fault_sig != 0) {
+			printf("[demo-skip] Todo[%d] file=\"%s\" type=%d: recovered from signal %d\n",
+				u, Todo[u].File ? Todo[u].File : "", Todo[u].Type, fault_sig);
+			fflush(stdout);
+			DemoFaultArmed = 0;
+			if (ArchiveBuffer) { CloseArchive(); }
+			continue;
+		}
+		DemoFaultArmed = 1;
+	  }
+	  try {
 		if (CDType & CD_MAC) {
 			strcpy(filename, Todo[u].File);
 			ConvertToMac(filename);
@@ -3291,46 +3387,99 @@ cd_detection_done:
 #endif
 				break;
 			case R:
+				if (DemoMode && DemoEntryMissing(Todo[u].Arg1)) {
+					fprintf(stderr, "[demo-skip] R u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
+					break;
+				}
 				ConvertRgb(Todo[u].File, Todo[u].Arg1);
 				break;
 			case T:
+				if (DemoMode && (DemoEntryMissing(Todo[u].Arg1) || DemoEntryMissing(Todo[u].Arg2)
+						|| DemoEntryMissing(Todo[u].Arg3) || DemoEntryMissing(Todo[u].Arg4))) {
+					fprintf(stderr, "[demo-skip] T u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
+					break;
+				}
 				ConvertTileset(Todo[u].File, Todo[u].Arg1, Todo[u].Arg2,
 					Todo[u].Arg3, Todo[u].Arg4);
 				break;
 			case G:
+				if (DemoMode && (DemoEntryMissing(Todo[u].Arg1) || DemoEntryMissing(Todo[u].Arg2))) {
+					fprintf(stderr, "[demo-skip] G u=%d file=\"%s\" pal=%d gfx=%d (entry missing)\n",
+						u, Todo[u].File, Todo[u].Arg1, Todo[u].Arg2); fflush(stderr);
+					break;
+				}
 				ConvertGfx(ParseString(Todo[u].File), Todo[u].Arg1, Todo[u].Arg2,
 					Todo[u].Arg3, Todo[u].Arg4);
 				break;
 			case U:
+				if (DemoMode && (DemoEntryMissing(Todo[u].Arg1) || DemoEntryMissing(Todo[u].Arg2))) {
+					fprintf(stderr, "[demo-skip] U u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
+					break;
+				}
 				ConvertGfu(Todo[u].File, Todo[u].Arg1, Todo[u].Arg2);
 				break;
 			case D:
+				if (DemoMode) {
+					// Grouped Uncompressed Graphics depend on a glist that frequently
+					// references entries the v1.08 shareware archive doesn't ship.
+					// The decode walks string lists with garbage offsets and segfaults.
+					fprintf(stderr, "[demo-skip] D u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
+					break;
+				}
 				ConvertGroupedGfu(Todo[u].File, Todo[u].Arg1, Todo[u].Arg2,
 					Todo[u].Arg3);
 				break;
 			case P:
+				if (DemoMode && DemoEntryMissing(Todo[u].Arg1)) {
+					fprintf(stderr, "[demo-skip] P u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
+					break;
+				}
 				ConvertPud(Todo[u].File, Todo[u].Arg1);
 				break;
 			case N:
+				if (DemoMode && DemoEntryMissing(Todo[u].Arg1)) {
+					fprintf(stderr, "[demo-skip] N u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
+					break;
+				}
 				ConvertFont(Todo[u].File, 2, Todo[u].Arg1);
 				break;
 			case I:
+				if (DemoMode && (DemoEntryMissing(Todo[u].Arg1) || DemoEntryMissing(Todo[u].Arg2))) {
+					fprintf(stderr, "[demo-skip] I u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
+					break;
+				}
 				ConvertImage(Todo[u].File, Todo[u].Arg1, Todo[u].Arg2,
 					Todo[u].Arg3, Todo[u].Arg4);
 				break;
 			case C:
+				if (DemoMode && (DemoEntryMissing(Todo[u].Arg1) || DemoEntryMissing(Todo[u].Arg2))) {
+					fprintf(stderr, "[demo-skip] C u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
+					break;
+				}
 				ConvertCursor(Todo[u].File, Todo[u].Arg1, Todo[u].Arg2);
 				break;
 			case M:
+				if (DemoMode && DemoEntryMissing(Todo[u].Arg1)) {
+					fprintf(stderr, "[demo-skip] M u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
+					break;
+				}
 				ConvertXmi(Todo[u].File, Todo[u].Arg1);
 				break;
 			case W:
 				if (ArchiveBuffer) {
+					if (DemoMode && DemoEntryMissing(Todo[u].Arg1)) {
+						fprintf(stderr, "[demo-skip] W u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
+						break;
+					}
 					ConvertWav(Todo[u].File, Todo[u].Arg1);
 				}
 				break;
 			case X:
 				if (!(CDType & CD_BNE)) {
+					if (DemoMode && DemoEntryMissing(Todo[u].Arg1)) {
+						fprintf(stderr, "[demo-skip] X u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
+						break;
+					}
 					ConvertText(Todo[u].File, Todo[u].Arg1, Todo[u].Arg2);
 				}
 				break;
@@ -3339,17 +3488,36 @@ cd_detection_done:
 				break;
 			case V:
 				if (video) {
+					if (DemoMode) {
+						fprintf(stderr, "[demo-skip] V u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
+						break;
+					}
 					ConvertVideo(Todo[u].File, Todo[u].Arg1);
 				}
 				break;
 			case L:
 				if (ArchiveBuffer) {
+					if (DemoMode) {
+						// Campaign level loader walks data the demo doesn't carry.
+						fprintf(stderr, "[demo-skip] L u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
+						break;
+					}
 					CampaignsCreate(Todo[u].File, Todo[u].Arg1, Todo[u].Arg2);
 				}
 				break;
 			default:
 				break;
 		}
+	  } catch (const std::runtime_error &e) {
+		printf("[demo-skip] Todo[%d] file=\"%s\" type=%d: %s\n",
+			u, Todo[u].File ? Todo[u].File : "", Todo[u].Type, e.what());
+		fflush(stdout);
+		// Reset partially-loaded archive state so the next F entry starts clean.
+		if (ArchiveBuffer) {
+			CloseArchive();
+		}
+	  }
+	  DemoFaultArmed = 0;
 	}
 
 	ConvertFilePuds(OriginalPuds);
