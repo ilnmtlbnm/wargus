@@ -3422,11 +3422,8 @@ cd_detection_done:
 				ConvertGfu(Todo[u].File, Todo[u].Arg1, Todo[u].Arg2);
 				break;
 			case D:
-				if (DemoMode) {
-					// Grouped Uncompressed Graphics depend on a glist that frequently
-					// references entries the v1.08 shareware archive doesn't ship.
-					// The decode walks string lists with garbage offsets and segfaults.
-					fprintf(stderr, "[demo-skip] D u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
+				if (DemoMode && (DemoEntryMissing(Todo[u].Arg1) || DemoEntryMissing(Todo[u].Arg2))) {
+					fprintf(stderr, "[demo-skip] D u=%d file=\"%s\" (entry missing)\n", u, Todo[u].File); fflush(stderr);
 					break;
 				}
 				ConvertGroupedGfu(Todo[u].File, Todo[u].Arg1, Todo[u].Arg2,
