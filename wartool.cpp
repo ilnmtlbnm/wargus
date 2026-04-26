@@ -982,16 +982,19 @@ void DecodeGfxEntry(int index, unsigned char* start,
 //			printf("%02X", ctrl);
 			if (ctrl & 0x80) {  // transparent
 				ctrl &= 0x7F;
+				if (!ctrl) break;
 //				printf("-%d,", ctrl);
 				memset(dp+h*iadd+w,255,ctrl);
 				w+=ctrl;
 			} else if (ctrl & 0x40) {  // repeat
 				ctrl &= 0x3F;
+				if (!ctrl) break;
 //				printf("*%d,", ctrl);
 				memset(dp + h * iadd + w, *sp++, ctrl);
 				w += ctrl;
 			} else {						// set pixels
 				ctrl &= 0x3F;
+				if (!ctrl) break;
 //				printf("=%d,", ctrl);
 				memcpy(dp + h * iadd + w, sp, ctrl);
 				sp += ctrl;
