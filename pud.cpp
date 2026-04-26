@@ -453,8 +453,8 @@ int PudToStratagus(const unsigned char *puddata, size_t size, const char *name, 
 	PudData pdata;
 
 	if (pdata.Parse(puddata, size) == false) {
-		fprintf(stderr, "invalid pud data\n");
-		exit(-1);
+		fprintf(stderr, "invalid pud data: %s (skipped)\n", name ? name : "");
+		return -1;
 	}
 	gzFile smpout;
 	gzFile smsout;
