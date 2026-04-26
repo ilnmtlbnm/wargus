@@ -347,8 +347,8 @@ int OpenArchive(const char* file, int type)
 	cp = buf;
 	i = FetchLE32(cp);
 //	printf("Magic\t%08X\t", i);
-	if (i != 0x19) {
-		printf("Wrong magic %08x, expected %08x\n", i, 0x00000019);
+	if (i != 0x19 && i != 0x18) {
+		printf("Wrong magic %08x, expected %08x or %08x\n", i, 0x00000019, 0x00000018);
 		error("Archive version error", "This version of the data is not supported");
 	}
 	entries = FetchLE16(cp);
