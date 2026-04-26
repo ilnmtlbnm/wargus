@@ -2880,6 +2880,18 @@ int main(int argc, char** argv)
 			sprintf(filename, "%s/STRDAT.WAR", ArchiveDir);
 			CDType |= CD_UPPER;
 		}
+		// Detect WAR2 v1.08 shareware demo by archive sizes (rezdat 2,374,055 + strdat 54,391).
+		{
+			struct stat st_rez, st_str;
+			if (!stat(buf, &st_rez) && !stat(filename, &st_str)
+				&& st_rez.st_size == 2374055 && st_str.st_size == 54391) {
+				printf("Detected WAR2 v1.08 shareware demo\n");
+				fflush(stdout);
+				CDType |= CD_DEMO | CD_US;
+				expansion_cd = 0;
+				goto cd_detection_done;
+			}
+		}
 		if (stat(buf, &st)) {
 			CDType |= CD_MAC | CD_US;
 			sprintf(buf, "%s/War Resources", ArchiveDir);
@@ -2971,6 +2983,7 @@ int main(int argc, char** argv)
 			}
 		}
 	}
+cd_detection_done:
 
 	if (expansion_cd == -1 || (expansion_cd != 1 && !(CDType & CD_EXPANSION))) {
 		expansion_cd = 0;

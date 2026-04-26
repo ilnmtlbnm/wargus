@@ -174,6 +174,7 @@ enum _archive_type_ {
 #define CD_BNE        (1 << 14) // This is a BNE version
 #define CD_BNE_CAPS   (1 << 15) // This is a BNE version with capitalized Support folder
 #define CD_BNE_UPPER  (1 << 16) // This is a BNE version with upper Support folder
+#define CD_DEMO       (1 << 17) // WAR2 v1.08 shareware demo (no expansion, no movies)
 
 /**
 **  What, where, how to extract.
