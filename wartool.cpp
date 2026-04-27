@@ -3499,7 +3499,36 @@ cd_detection_done:
 				if (ArchiveBuffer) {
 					if (DemoMode) {
 						// Campaign level loader walks data the demo doesn't carry.
+						// Emit minimal _c2.sms title stubs for demo levels so
+						// CampaignButtonTitle() doesn't fall back to "Ending - Victory".
 						fprintf(stderr, "[demo-skip] L u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
+						{
+							static const char* demoHumanLevels[] = {
+								"human/level01h", "human/level02h", "human/level03h",
+								"human/level04h", "human/level05h", "human/level06h",
+							};
+							static const char* demoLevelTitles[] = {
+								"Level 1", "Level 2", "Level 3",
+								"Level 4", "Level 5", "Level 6",
+							};
+							char stubpath[8192];
+							for (int li = 0; li < 6; ++li) {
+								sprintf(stubpath, "%s/" TEXT_PATH "/%s_c2.sms",
+									Dir, demoHumanLevels[li]);
+								CheckPath(stubpath);
+								FILE* sf = fopen(stubpath, "wb");
+								if (!sf) {
+									fprintf(stderr, "[demo-stub] cannot write %s\n", stubpath);
+									fflush(stderr);
+									continue;
+								}
+								fprintf(sf, "title = \"%s\"\nobjectives = {}\n",
+									demoLevelTitles[li]);
+								fclose(sf);
+								fprintf(stderr, "[demo-stub] wrote %s\n", stubpath);
+								fflush(stderr);
+							}
+						}
 						break;
 					}
 					CampaignsCreate(Todo[u].File, Todo[u].Arg1, Todo[u].Arg2);
