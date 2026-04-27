@@ -662,6 +662,13 @@ int ConvertRgb(const char* file, int rgbe)
 	size_t l;
 
 	rgbp = ExtractEntry(SafeOffset(rgbe), &l);
+	if (!rgbp || l < 768) {
+		fprintf(stderr, "[wartool] entry=%d path=%s type=R reason=palette-too-short size=%zu\n",
+			rgbe, file, l);
+		fflush(stderr);
+		free(rgbp);
+		return 0;
+	}
 	ConvertPalette(rgbp);
 
 	//
@@ -914,7 +921,15 @@ int ConvertTileset(const char* file, int pale, int mege, int mine, int mape)
 	size_t megl;
 	char buf[8192] = {'\0'};
 
-	palp = ExtractEntry(SafeOffset(pale), NULL);
+	size_t plen_ts = 0;
+	palp = ExtractEntry(SafeOffset(pale), &plen_ts);
+	if (!palp || plen_ts < 768) {
+		fprintf(stderr, "[wartool] entry=%d path=%s type=tileset reason=palette-too-short size=%zu\n",
+			pale, file, plen_ts);
+		fflush(stderr);
+		free(palp);
+		return 0;
+	}
 	megp = ExtractEntry(SafeOffset(mege), &megl);
 	minp = ExtractEntry(SafeOffset(mine), NULL);
 	mapp = ExtractEntry(SafeOffset(mape), NULL);
@@ -1233,7 +1248,15 @@ int ConvertGfx(const char* file, int pale, int gfxe, int gfxe2, int start2)
 	int h;
 	char buf[1024];
 
-	palp = ExtractEntry(SafeOffset(pale), NULL);
+	size_t plen_gfx = 0;
+	palp = ExtractEntry(SafeOffset(pale), &plen_gfx);
+	if (!palp || plen_gfx < 768) {
+		fprintf(stderr, "[wartool] entry=%d path=%s/%s/%s.png type=G reason=palette-too-short size=%zu\n",
+			pale, Dir, GRAPHICS_PATH, file, plen_gfx);
+		fflush(stderr);
+		free(palp);
+		return 0;
+	}
 	gfxp = ExtractEntry(SafeOffset(gfxe), NULL);
 	if (gfxe2) {
 		gfxp2 = ExtractEntry(SafeOffset(gfxe2), NULL);
@@ -1280,7 +1303,15 @@ int ConvertGfu(const char* file, int pale, int gfue)
 	int h;
 	char buf[8192] = {'\0'};
 
-	palp = ExtractEntry(SafeOffset(pale), NULL);
+	size_t plen_gfu = 0;
+	palp = ExtractEntry(SafeOffset(pale), &plen_gfu);
+	if (!palp || plen_gfu < 768) {
+		fprintf(stderr, "[wartool] entry=%d path=%s/%s/%s.png type=U reason=palette-too-short size=%zu\n",
+			pale, Dir, GRAPHICS_PATH, file, plen_gfu);
+		fflush(stderr);
+		free(palp);
+		return 0;
+	}
 	gfup = ExtractEntry(SafeOffset(gfue), NULL);
 
 	image = ConvertGraphic(0, gfup, &w, &h, NULL, 0);
@@ -1321,7 +1352,15 @@ int ConvertGroupedGfu(const char *path, int pale, int gfue, int glist)
 	int i;
 	const GroupedGraphic *gg;
 
-	palp = ExtractEntry(SafeOffset(pale), NULL);
+	size_t plen_ggfu = 0;
+	palp = ExtractEntry(SafeOffset(pale), &plen_ggfu);
+	if (!palp || plen_ggfu < 768) {
+		fprintf(stderr, "[wartool] entry=%d path=%s type=D reason=palette-too-short size=%zu\n",
+			pale, path, plen_ggfu);
+		fflush(stderr);
+		free(palp);
+		return 0;
+	}
 	gfup = ExtractEntry(SafeOffset(gfue), NULL);
 
 	image = ConvertGraphic(0, gfup, &w, &h, NULL, 0);
@@ -1346,7 +1385,16 @@ int ConvertGroupedGfu(const char *path, int pale, int gfue, int glist)
 		// hack for multiple palettes
 		if (i == 3 && strstr(path, "widgets")) {
 			free(palp);
-			palp = ExtractEntry(SafeOffset(14), NULL);
+			size_t plen_ggfu2 = 0;
+			palp = ExtractEntry(SafeOffset(14), &plen_ggfu2);
+			if (!palp || plen_ggfu2 < 768) {
+				fprintf(stderr, "[wartool] entry=14 path=%s type=D reason=secondary-palette-too-short size=%zu\n",
+					path, plen_ggfu2);
+				fflush(stderr);
+				free(palp);
+				palp = NULL;
+				break;
+			}
 			ConvertPalette(palp);
 		}
 
@@ -1658,7 +1706,15 @@ int ConvertFont(const char* file, int pale, int fnte)
 	int h;
 	char buf[8192] = {'\0'};
 
-	palp = ExtractEntry(SafeOffset(pale), NULL);
+	size_t plen_fnt = 0;
+	palp = ExtractEntry(SafeOffset(pale), &plen_fnt);
+	if (!palp || plen_fnt < 768) {
+		fprintf(stderr, "[wartool] entry=%d path=%s type=F reason=palette-too-short size=%zu\n",
+			pale, file, plen_fnt);
+		fflush(stderr);
+		free(palp);
+		return 0;
+	}
 	fntp = ExtractEntry(SafeOffset(fnte), NULL);
 
 	image = ConvertFnt(fntp, &w, &h);
@@ -1708,6 +1764,16 @@ unsigned char* ConvertImg(unsigned char* bp, int* wp, int* hp)
 
 //	printf("Image: width %3d height %3d\n", width, height);
 
+	// Guard: demo entries may have garbage dimension fields leading to huge alloc
+	if (!width || !height || (size_t)width * height > 16 * 1024 * 1024) {
+		fprintf(stderr, "[wartool] type=I reason=dimension-overflow width=%d height=%d\n",
+			width, height);
+		fflush(stderr);
+		*wp = 0;
+		*hp = 0;
+		return NULL;
+	}
+
 	image = (unsigned char *)malloc(width * height);
 	if (!image) {
 		printf("Can't allocate image\n");
@@ -1718,11 +1784,7 @@ unsigned char* ConvertImg(unsigned char* bp, int* wp, int* hp)
 	*wp = width;
 	*hp = height;
 
-	if (!*wp || !*hp) {
-		return NULL;
-	} else {
-		return image;
-	}
+	return image;
 }
 
 /**
@@ -1780,7 +1842,15 @@ int ConvertImage(const char* file, int pale, int imge, int nw, int nh)
 		}
 	}
 
-	palp = ExtractEntry(SafeOffset(pale), NULL);
+	size_t plen_img = 0;
+	palp = ExtractEntry(SafeOffset(pale), &plen_img);
+	if (!palp || plen_img < 768) {
+		fprintf(stderr, "[wartool] entry=%d path=%s type=I reason=palette-too-short size=%zu\n",
+			pale, file, plen_img);
+		fflush(stderr);
+		free(palp);
+		return 0;
+	}
 	if (pale == 27 && imge == 28) {
 		Pal27 = palp;
 	}
@@ -1789,9 +1859,14 @@ int ConvertImage(const char* file, int pale, int imge, int nw, int nh)
 	image = ConvertImg(imgp, &w, &h);
 
 	if (!image) {
-		printf("Please report this bug, could not extract image: file=%s pale=%d imge=%d nw=%d nh=%d mac=%d\n",
-			file, pale, imge, nw, nh, CDType & CD_MAC);
-		error("Archive version error", "This version of the CD is not supported");
+		fprintf(stderr, "[wartool] entry=%d path=%s type=I reason=decode-fail\n",
+			imge, file);
+		fflush(stderr);
+		free(imgp);
+		if (pale != 27 || imge != 28) {
+			free(palp);
+		}
+		return 0;
 	}
 	free(imgp);
 	ConvertPalette(palp);
@@ -1877,7 +1952,15 @@ int ConvertCursor(const char* file, int pale, int cure)
 	if (pale == 27 && cure == 314 && Pal27 ) { // Credits arrow (Blue arrow NW)
 		palp = Pal27;
 	} else {
-		palp = ExtractEntry(SafeOffset(pale), NULL);
+		size_t plen_cur = 0;
+		palp = ExtractEntry(SafeOffset(pale), &plen_cur);
+		if (!palp || plen_cur < 768) {
+			fprintf(stderr, "[wartool] entry=%d path=%s type=C reason=palette-too-short size=%zu\n",
+				pale, file, plen_cur);
+			fflush(stderr);
+			free(palp);
+			return 0;
+		}
 	}
 	curp = ExtractEntry(SafeOffset(cure), NULL);
 
