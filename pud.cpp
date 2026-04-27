@@ -265,7 +265,12 @@ void PudData::WriteSMP(gzFile smpout, const char *smsname) const
 				strncat(buf, c, 1);
 			}
 		}
-		strcpy(strstr(buf, ".sms"), "_c.sms");
+		// Strip trailing .gz so Stratagus FindFileWithExtension can probe both
+		// "level01h.sms" and "level01h.sms.gz" from the bare .sms name.
+		char *gz = strstr(buf, ".gz");
+		if (gz && *(gz + 3) == '\0') {
+			*gz = '\0';
+		}
 		gzprintf(smpout, "DefineMapSetup(\"%s\")\n", buf);
 	}
 }
