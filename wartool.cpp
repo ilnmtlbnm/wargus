@@ -1223,11 +1223,7 @@ unsigned char* ConvertGraphic(int gfx, unsigned char* bp, int *wp, int *hp,
 /**
 **  Convert a graphic to my format.
 */
-// stub_w/stub_h: if ConvertGraphic returns NULL (e.g. IFF/FORM data), emit a
-// stub PNG of these dimensions (all transparent). Pass 0,0 to skip stub and
-// return without writing output. See 3-hud-diagnosis/findings.md (RC3).
-int ConvertGfx(const char* file, int pale, int gfxe, int gfxe2, int start2,
-	int stub_w, int stub_h)
+int ConvertGfx(const char* file, int pale, int gfxe, int gfxe2, int start2)
 {
 	unsigned char* palp;
 	unsigned char* gfxp;
@@ -1253,21 +1249,9 @@ int ConvertGfx(const char* file, int pale, int gfxe, int gfxe2, int start2,
 	free(gfxp);
 
 	if (!image) {
-		if (stub_w > 0 && stub_h > 0) {
-			// RC3: emit a correct-dimension all-transparent stub so Stratagus
-			// can slice the sprite sheet without aborting on wrong dimensions.
-			unsigned char stub_pal[768];
-			memset(stub_pal, 0, sizeof(stub_pal));
-			image = (unsigned char *)malloc(stub_w * stub_h);
-			if (image) {
-				memset(image, 255, stub_w * stub_h);
-				ConvertPalette(stub_pal);
-				sprintf(buf, "%s/%s/%s.png", Dir, GRAPHICS_PATH, file);
-				CheckPath(buf);
-				SavePNG(buf, image, 0, 0, stub_w, stub_h, stub_w, stub_pal, 1);
-				free(image);
-			}
-		}
+		fprintf(stderr, "[wartool] entry=%d path=%s/%s/%s.png type=G reason=decode-fail\n",
+			gfxe, Dir, GRAPHICS_PATH, file);
+		fflush(stderr);
 		free(palp);
 		return 0;
 	}
@@ -1287,10 +1271,7 @@ int ConvertGfx(const char* file, int pale, int gfxe, int gfxe2, int start2,
 /**
 **  Convert a uncompressed graphic to my format.
 */
-// stub_w/stub_h: if ConvertGraphic returns NULL (e.g. IFF/FORM data), emit a
-// stub PNG of these dimensions (all transparent). Pass 0,0 to skip stub.
-// See 3-hud-diagnosis/findings.md (RC3).
-int ConvertGfu(const char* file, int pale, int gfue, int stub_w, int stub_h)
+int ConvertGfu(const char* file, int pale, int gfue)
 {
 	unsigned char* palp;
 	unsigned char* gfup;
@@ -1307,20 +1288,9 @@ int ConvertGfu(const char* file, int pale, int gfue, int stub_w, int stub_h)
 	free(gfup);
 
 	if (!image) {
-		if (stub_w > 0 && stub_h > 0) {
-			// RC3: emit a correct-dimension all-transparent stub.
-			unsigned char stub_pal[768];
-			memset(stub_pal, 0, sizeof(stub_pal));
-			image = (unsigned char *)malloc(stub_w * stub_h);
-			if (image) {
-				memset(image, 255, stub_w * stub_h);
-				ConvertPalette(stub_pal);
-				sprintf(buf, "%s/%s/%s.png", Dir, GRAPHICS_PATH, file);
-				CheckPath(buf);
-				SavePNG(buf, image, 0, 0, stub_w, stub_h, stub_w, stub_pal, 1);
-				free(image);
-			}
-		}
+		fprintf(stderr, "[wartool] entry=%d path=%s/%s/%s.png type=U reason=decode-fail\n",
+			gfue, Dir, GRAPHICS_PATH, file);
+		fflush(stderr);
 		free(palp);
 		return 0;
 	}
@@ -3519,53 +3489,21 @@ cd_detection_done:
 				break;
 			case G: {
 				if (DemoMode && (DemoEntryMissing(Todo[u].Arg1) || DemoEntryMissing(Todo[u].Arg2))) {
-					// RC3: icons gfx=358 is an EmptyEntry in the demo; emit a correct-dimension
-					// stub directly rather than skipping entirely, so Stratagus can slice the
-					// sprite sheet without aborting on dimension mismatch.
-					// See 3-hud-diagnosis/findings.md.
-					if (Todo[u].Arg2 == 358) {
-						unsigned char stub_pal[768];
-						memset(stub_pal, 0, sizeof(stub_pal));
-						ConvertPalette(stub_pal);
-						unsigned char* img = (unsigned char*)malloc(414 * 342);
-						if (img) {
-							char buf[1024];
-							memset(img, 255, 414 * 342);
-							sprintf(buf, "%s/%s/%s.png", Dir, GRAPHICS_PATH, ParseString(Todo[u].File));
-							CheckPath(buf);
-							SavePNG(buf, img, 0, 0, 414, 342, 414, stub_pal, 1);
-							free(img);
-						}
-					} else {
-						fprintf(stderr, "[demo-skip] G u=%d file=\"%s\" pal=%d gfx=%d (entry missing)\n",
-							u, Todo[u].File, Todo[u].Arg1, Todo[u].Arg2); fflush(stderr);
-					}
+					fprintf(stderr, "[wartool] entry=%d path=%s type=G reason=entry-missing\n",
+						Todo[u].Arg2, Todo[u].File); fflush(stderr);
 					break;
 				}
-				// RC3: icons entries (gfx=356/357) contain IFF/FORM data in the demo archive;
-				// pass correct sprite-sheet dimensions so ConvertGfx emits a valid stub if
-				// ConvertGraphic returns NULL. See 3-hud-diagnosis/findings.md.
-				int gstub_w = 0, gstub_h = 0;
-				if (DemoMode && (Todo[u].Arg2 == 356 || Todo[u].Arg2 == 357)) {
-					gstub_w = 414; gstub_h = 342;
-				}
 				ConvertGfx(ParseString(Todo[u].File), Todo[u].Arg1, Todo[u].Arg2,
-					Todo[u].Arg3, Todo[u].Arg4, gstub_w, gstub_h);
+					Todo[u].Arg3, Todo[u].Arg4);
 				break;
 			}
 			case U: {
 				if (DemoMode && (DemoEntryMissing(Todo[u].Arg1) || DemoEntryMissing(Todo[u].Arg2))) {
-					fprintf(stderr, "[demo-skip] U u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
+					fprintf(stderr, "[wartool] entry=%d path=%s type=U reason=entry-missing\n",
+						Todo[u].Arg2, Todo[u].File); fflush(stderr);
 					break;
 				}
-				// RC3: infopanel entries (gfue=354/355) contain IFF/FORM data in the demo archive;
-				// pass correct dimensions so ConvertGfu emits a valid stub if ConvertGraphic
-				// returns NULL. See 3-hud-diagnosis/findings.md.
-				int ustub_w = 0, ustub_h = 0;
-				if (DemoMode && (Todo[u].Arg2 == 354 || Todo[u].Arg2 == 355)) {
-					ustub_w = 176; ustub_h = 176;
-				}
-				ConvertGfu(Todo[u].File, Todo[u].Arg1, Todo[u].Arg2, ustub_w, ustub_h);
+				ConvertGfu(Todo[u].File, Todo[u].Arg1, Todo[u].Arg2);
 				break;
 			}
 			case D:
