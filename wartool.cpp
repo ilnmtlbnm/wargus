@@ -971,6 +971,15 @@ void DecodeGfxEntry(int index, unsigned char* start,
 //	printf("%2d: +x %2d +y %2d width %2d height %2d offset %d\n",
 //		index, xoff, yoff, width, height, offset);
 
+	// RC1 guard: skip frames with invalid offset to avoid wild memory access.
+	// offset<=0 covers the retail sentinel (0) and 0xEF-fill garbage (negative).
+	// offset > 4MB covers large-positive garbage values (e.g. 0x6f6f6c68).
+	// Valid WAR2 GFX entry data is always < 4 MB uncompressed.
+	// See 3-hud-diagnosis/findings.md.
+	if (offset <= 0 || offset > (4 * 1024 * 1024)) {
+		return;
+	}
+
 	rows = start + offset - 6;
 	dp = image + xoff - ix + (yoff - iy) * iadd;
 
@@ -1037,6 +1046,14 @@ void DecodeGfuEntry(int index, unsigned char* start,
 //	printf("%2d: +x %2d +y %2d width %2d height %2d offset %d\n",
 //		index, xoff, yoff, width, height, offset);
 
+	// RC1 guard: skip frames with invalid offset to avoid wild memory access.
+	// offset<=0 covers the retail sentinel and 0xEF-fill garbage (negative).
+	// offset > 4MB covers large-positive garbage values.
+	// See 3-hud-diagnosis/findings.md.
+	if (offset <= 0 || offset > (4 * 1024 * 1024)) {
+		return;
+	}
+
 	sp = start + offset - 6;
 	dp = image + xoff - ix + (yoff - iy) * iadd;
 	for (i = 0; i < height; ++i) {
@@ -1055,6 +1072,14 @@ unsigned char* ConvertGraphic(int gfx, unsigned char* bp, int *wp, int *hp,
 	int i;
 	int count;
 	int length;
+
+	// RC2 guard: IFF/FORM header indicates non-graphics data (e.g. XMID music).
+	// ConvertGraphic would misread "FORM" as count=20294/max_h=0, walk ~162 KB
+	// past a small buffer, and SIGSEGV. Return NULL so callers emit a stub.
+	// See 3-hud-diagnosis/findings.md.
+	if (bp[0] == 'F' && bp[1] == 'O' && bp[2] == 'R' && bp[3] == 'M') {
+		return NULL;
+	}
 	int max_width;
 	int max_height;
 	int minx;
@@ -1198,7 +1223,11 @@ unsigned char* ConvertGraphic(int gfx, unsigned char* bp, int *wp, int *hp,
 /**
 **  Convert a graphic to my format.
 */
-int ConvertGfx(const char* file, int pale, int gfxe, int gfxe2, int start2)
+// stub_w/stub_h: if ConvertGraphic returns NULL (e.g. IFF/FORM data), emit a
+// stub PNG of these dimensions (all transparent). Pass 0,0 to skip stub and
+// return without writing output. See 3-hud-diagnosis/findings.md (RC3).
+int ConvertGfx(const char* file, int pale, int gfxe, int gfxe2, int start2,
+	int stub_w, int stub_h)
 {
 	unsigned char* palp;
 	unsigned char* gfxp;
@@ -1221,8 +1250,28 @@ int ConvertGfx(const char* file, int pale, int gfxe, int gfxe2, int start2)
 	if (gfxp2) {
 		free(gfxp2);
 	}
-
 	free(gfxp);
+
+	if (!image) {
+		if (stub_w > 0 && stub_h > 0) {
+			// RC3: emit a correct-dimension all-transparent stub so Stratagus
+			// can slice the sprite sheet without aborting on wrong dimensions.
+			unsigned char stub_pal[768];
+			memset(stub_pal, 0, sizeof(stub_pal));
+			image = (unsigned char *)malloc(stub_w * stub_h);
+			if (image) {
+				memset(image, 255, stub_w * stub_h);
+				ConvertPalette(stub_pal);
+				sprintf(buf, "%s/%s/%s.png", Dir, GRAPHICS_PATH, file);
+				CheckPath(buf);
+				SavePNG(buf, image, 0, 0, stub_w, stub_h, stub_w, stub_pal, 1);
+				free(image);
+			}
+		}
+		free(palp);
+		return 0;
+	}
+
 	ConvertPalette(palp);
 
 	sprintf(buf, "%s/%s/%s.png", Dir, GRAPHICS_PATH, file);
@@ -1238,7 +1287,10 @@ int ConvertGfx(const char* file, int pale, int gfxe, int gfxe2, int start2)
 /**
 **  Convert a uncompressed graphic to my format.
 */
-int ConvertGfu(const char* file,int pale,int gfue)
+// stub_w/stub_h: if ConvertGraphic returns NULL (e.g. IFF/FORM data), emit a
+// stub PNG of these dimensions (all transparent). Pass 0,0 to skip stub.
+// See 3-hud-diagnosis/findings.md (RC3).
+int ConvertGfu(const char* file, int pale, int gfue, int stub_w, int stub_h)
 {
 	unsigned char* palp;
 	unsigned char* gfup;
@@ -1253,6 +1305,26 @@ int ConvertGfu(const char* file,int pale,int gfue)
 	image = ConvertGraphic(0, gfup, &w, &h, NULL, 0);
 
 	free(gfup);
+
+	if (!image) {
+		if (stub_w > 0 && stub_h > 0) {
+			// RC3: emit a correct-dimension all-transparent stub.
+			unsigned char stub_pal[768];
+			memset(stub_pal, 0, sizeof(stub_pal));
+			image = (unsigned char *)malloc(stub_w * stub_h);
+			if (image) {
+				memset(image, 255, stub_w * stub_h);
+				ConvertPalette(stub_pal);
+				sprintf(buf, "%s/%s/%s.png", Dir, GRAPHICS_PATH, file);
+				CheckPath(buf);
+				SavePNG(buf, image, 0, 0, stub_w, stub_h, stub_w, stub_pal, 1);
+				free(image);
+			}
+		}
+		free(palp);
+		return 0;
+	}
+
 	ConvertPalette(palp);
 
 	sprintf(buf, "%s/%s/%s.png", Dir, GRAPHICS_PATH, file);
@@ -1285,6 +1357,12 @@ int ConvertGroupedGfu(const char *path, int pale, int gfue, int glist)
 	image = ConvertGraphic(0, gfup, &w, &h, NULL, 0);
 
 	free(gfup);
+
+	if (!image) {
+		free(palp);
+		return 0;
+	}
+
 	ConvertPalette(palp);
 
 	for (i = 0; GroupedGraphicsList[glist][i].Name[0]; ++i) {
@@ -1467,6 +1545,15 @@ unsigned char* ConvertFnt(unsigned char* start, int *wp, int *hp)
 	int image_height;
 	int IPR;
 
+	// Guard: demo font entries 279-283 have valid archive offsets but contain
+	// corrupt data (no "FONT " magic). Skip gracefully rather than reading
+	// garbage count/width/height values that cause wild memory accesses.
+	// See 3-hud-diagnosis/findings.md and CLAUDE.md wargus patches.
+	if (start[0] != 'F' || start[1] != 'O' || start[2] != 'N' || start[3] != 'T') {
+		*wp = 0; *hp = 0;
+		return NULL;
+	}
+
 	bp = start + 5;  // skip "FONT "
 	count = FetchByte(bp);
 	if (CDType & CD_RUSSIAN) {
@@ -1607,6 +1694,14 @@ int ConvertFont(const char* file, int pale, int fnte)
 	image = ConvertFnt(fntp, &w, &h);
 
 	free(fntp);
+
+	// ConvertFnt returns NULL when the entry lacks "FONT " magic (e.g. demo
+	// font entries 279-283). Skip PNG write; scripts/fonts.lua supplies fallback.
+	if (!image) {
+		free(palp);
+		return 0;
+	}
+
 	ConvertPalette(palp);
 
 	sprintf(buf, "%s/%s/%s.png", Dir, FONT_PATH, file);
@@ -1774,6 +1869,14 @@ unsigned char* ConvertCur(unsigned char* bp, int* wp, int* hp)
 //	printf("Cursor: hotx %d hoty %d width %d height %d\n",
 //		hotx, hoty, width, height);
 
+	// Guard: demo cursor entries may contain garbage data with huge width/height
+	// values that cause OOM or OOB reads. Valid WAR2 cursors are <= 128x128.
+	// See 3-hud-diagnosis/findings.md.
+	if (width == 0 || height == 0 || width > 128 || height > 128) {
+		*wp = 0; *hp = 0;
+		return NULL;
+	}
+
 	image = (unsigned char *)malloc(width * height);
 	if (!image) {
 		printf("Can't allocate image\n");
@@ -1811,6 +1914,15 @@ int ConvertCursor(const char* file, int pale, int cure)
 	image = ConvertCur(curp, &w, &h);
 
 	free(curp);
+
+	// ConvertCur returns NULL when cursor dimensions are garbage (demo entries).
+	if (!image) {
+		if (pale != 27 || cure != 314 || !Pal27) {
+			free(palp);
+		}
+		return 0;
+	}
+
 	ConvertPalette(palp);
 
 	sprintf(buf, "%s/%s/%s.png", Dir, CURSOR_PATH, file);
@@ -3405,22 +3517,57 @@ cd_detection_done:
 				ConvertTileset(Todo[u].File, Todo[u].Arg1, Todo[u].Arg2,
 					Todo[u].Arg3, Todo[u].Arg4);
 				break;
-			case G:
+			case G: {
 				if (DemoMode && (DemoEntryMissing(Todo[u].Arg1) || DemoEntryMissing(Todo[u].Arg2))) {
-					fprintf(stderr, "[demo-skip] G u=%d file=\"%s\" pal=%d gfx=%d (entry missing)\n",
-						u, Todo[u].File, Todo[u].Arg1, Todo[u].Arg2); fflush(stderr);
+					// RC3: icons gfx=358 is an EmptyEntry in the demo; emit a correct-dimension
+					// stub directly rather than skipping entirely, so Stratagus can slice the
+					// sprite sheet without aborting on dimension mismatch.
+					// See 3-hud-diagnosis/findings.md.
+					if (Todo[u].Arg2 == 358) {
+						unsigned char stub_pal[768];
+						memset(stub_pal, 0, sizeof(stub_pal));
+						ConvertPalette(stub_pal);
+						unsigned char* img = (unsigned char*)malloc(414 * 342);
+						if (img) {
+							char buf[1024];
+							memset(img, 255, 414 * 342);
+							sprintf(buf, "%s/%s/%s.png", Dir, GRAPHICS_PATH, ParseString(Todo[u].File));
+							CheckPath(buf);
+							SavePNG(buf, img, 0, 0, 414, 342, 414, stub_pal, 1);
+							free(img);
+						}
+					} else {
+						fprintf(stderr, "[demo-skip] G u=%d file=\"%s\" pal=%d gfx=%d (entry missing)\n",
+							u, Todo[u].File, Todo[u].Arg1, Todo[u].Arg2); fflush(stderr);
+					}
 					break;
 				}
+				// RC3: icons entries (gfx=356/357) contain IFF/FORM data in the demo archive;
+				// pass correct sprite-sheet dimensions so ConvertGfx emits a valid stub if
+				// ConvertGraphic returns NULL. See 3-hud-diagnosis/findings.md.
+				int gstub_w = 0, gstub_h = 0;
+				if (DemoMode && (Todo[u].Arg2 == 356 || Todo[u].Arg2 == 357)) {
+					gstub_w = 414; gstub_h = 342;
+				}
 				ConvertGfx(ParseString(Todo[u].File), Todo[u].Arg1, Todo[u].Arg2,
-					Todo[u].Arg3, Todo[u].Arg4);
+					Todo[u].Arg3, Todo[u].Arg4, gstub_w, gstub_h);
 				break;
-			case U:
+			}
+			case U: {
 				if (DemoMode && (DemoEntryMissing(Todo[u].Arg1) || DemoEntryMissing(Todo[u].Arg2))) {
 					fprintf(stderr, "[demo-skip] U u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
 					break;
 				}
-				ConvertGfu(Todo[u].File, Todo[u].Arg1, Todo[u].Arg2);
+				// RC3: infopanel entries (gfue=354/355) contain IFF/FORM data in the demo archive;
+				// pass correct dimensions so ConvertGfu emits a valid stub if ConvertGraphic
+				// returns NULL. See 3-hud-diagnosis/findings.md.
+				int ustub_w = 0, ustub_h = 0;
+				if (DemoMode && (Todo[u].Arg2 == 354 || Todo[u].Arg2 == 355)) {
+					ustub_w = 176; ustub_h = 176;
+				}
+				ConvertGfu(Todo[u].File, Todo[u].Arg1, Todo[u].Arg2, ustub_w, ustub_h);
 				break;
+			}
 			case D:
 				if (DemoMode && (DemoEntryMissing(Todo[u].Arg1) || DemoEntryMissing(Todo[u].Arg2))) {
 					fprintf(stderr, "[demo-skip] D u=%d file=\"%s\" (entry missing)\n", u, Todo[u].File); fflush(stderr);
