@@ -3610,16 +3610,6 @@ cd_detection_done:
 						Todo[u].Arg2, Todo[u].File); fflush(stderr);
 					break;
 				}
-				// Demo remap: infopanel entries (maindat 354/355 = IFF music in demo).
-				// Replace with raw ConvertImage using maindat 246/247 (176x136 panel frame art).
-				if (DemoMode && Todo[u].Arg2 == 354) {
-					ConvertImage(Todo[u].File, 2, 246, 0, 0);
-					break;
-				}
-				if (DemoMode && Todo[u].Arg2 == 355) {
-					ConvertImage(Todo[u].File, 2, 247, 0, 0);
-					break;
-				}
 				ConvertGfu(Todo[u].File, Todo[u].Arg1, Todo[u].Arg2);
 				break;
 			}
@@ -3645,25 +3635,14 @@ cd_detection_done:
 				}
 				ConvertFont(Todo[u].File, 2, Todo[u].Arg1);
 				break;
-			case I: {
-				int i_pale = Todo[u].Arg1;
-				int i_img  = Todo[u].Arg2;
-				// Demo remap: maindat HUD entries 287-298 are GFX combat sprites in
-				// the demo (not raw images). The actual HUD art lives at maindat 238-249.
-				// Map: resource(287->238,288->239), filler-right(289->240,290->241),
-				//       statusline(291->242,292->243), menubutton(293->244,294->245),
-				//       minimap(295->246,296->247), buttonpanel(297->248,298->249).
-				if (DemoMode && i_img >= 287 && i_img <= 298) {
-					i_img = 238 + (i_img - 287);
-				}
-				if (DemoMode && (DemoEntryMissing(i_pale) || DemoEntryMissing(i_img))) {
+			case I:
+				if (DemoMode && (DemoEntryMissing(Todo[u].Arg1) || DemoEntryMissing(Todo[u].Arg2))) {
 					fprintf(stderr, "[demo-skip] I u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
 					break;
 				}
-				ConvertImage(Todo[u].File, i_pale, i_img,
+				ConvertImage(Todo[u].File, Todo[u].Arg1, Todo[u].Arg2,
 					Todo[u].Arg3, Todo[u].Arg4);
 				break;
-			}
 			case C:
 				if (DemoMode && (DemoEntryMissing(Todo[u].Arg1) || DemoEntryMissing(Todo[u].Arg2))) {
 					fprintf(stderr, "[demo-skip] C u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
