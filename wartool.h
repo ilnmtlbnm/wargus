@@ -630,11 +630,9 @@ static Control Todo[] = {
 {N,0,"game",                                           282 __},
 {N,0,"small",                                          283 __},
 // --------------------------------------------------
-// dusty-bytes demo: entries 287-298 in demo maindat are GFX combat sprites
-// (explosions, arrows) -- NOT the HUD panel images expected here (those
-// don't exist in the demo archive). The ConvertImage GFX-guard in wartool.cpp
-// skips these entries so they produce no PNG; stratagus NULL-guards handle
-// the missing assets (black/transparent panels).
+// dusty-bytes demo: entries 287-298 in demo maindat are GFX combat sprites.
+// Real HUD art is at maindat 238-249 (same palette #2). Remapped at runtime
+// in wartool.cpp case I DemoMode block: 287->238 ... 298->249.
 {I,0,"ui/human/menubutton",                            2, 293 _2},
 {I,0,"ui/orc/menubutton",                              2, 294 _2},
 {I,0,"ui/human/minimap",                               2, 295 _2},
