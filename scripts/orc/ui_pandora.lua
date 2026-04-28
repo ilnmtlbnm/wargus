@@ -27,12 +27,14 @@
 --      Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 --
 
-DefineCursor({
-  Name = "cursor-point",
-  Race = "orc",
-  File = "ui/orc/cursors/orcish_claw.png",
-  HotSpot = { 3,  2},
-  Size = {26, 32}})
+-- dusty-bytes demo: orcish_claw.png absent (ConvertCur silent-null on demo cursor data); fall back to cross.png
+if (CanAccessFile("ui/orc/cursors/orcish_claw.png")) then
+  DefineCursor({Name = "cursor-point", Race = "orc",
+    File = "ui/orc/cursors/orcish_claw.png", HotSpot = { 3,  2}, Size = {26, 32}})
+else
+  DefineCursor({Name = "cursor-point", Race = "orc",
+    File = "ui/cursors/cross.png", HotSpot = {15, 15}, Size = {32, 32}})
+end
 DefineCursor({
   Name = "cursor-green-hair",
   Race = "orc",
