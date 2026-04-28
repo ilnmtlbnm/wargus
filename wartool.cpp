@@ -3664,19 +3664,13 @@ cd_detection_done:
 					Todo[u].Arg3, Todo[u].Arg4);
 				break;
 			}
-			case C: {
-				int c_pale = Todo[u].Arg1;
-				int c_cure = Todo[u].Arg2;
-				if (DemoMode && c_cure >= 301 && c_cure <= 322) {
-					c_cure = 252 + (c_cure - 301);
-				}
-				if (DemoMode && (DemoEntryMissing(c_pale) || DemoEntryMissing(c_cure))) {
+			case C:
+				if (DemoMode && (DemoEntryMissing(Todo[u].Arg1) || DemoEntryMissing(Todo[u].Arg2))) {
 					fprintf(stderr, "[demo-skip] C u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
 					break;
 				}
-				ConvertCursor(Todo[u].File, c_pale, c_cure);
+				ConvertCursor(Todo[u].File, Todo[u].Arg1, Todo[u].Arg2);
 				break;
-			}
 			case M:
 				if (DemoMode && DemoEntryMissing(Todo[u].Arg1)) {
 					fprintf(stderr, "[demo-skip] M u=%d file=\"%s\"\n", u, Todo[u].File); fflush(stderr);
