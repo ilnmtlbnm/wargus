@@ -27,14 +27,8 @@
 --      Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 --
 
--- dusty-bytes demo: human_gauntlet.png absent; fall back to cross.png
-if (CanAccessFile("ui/human/cursors/human_gauntlet.png")) then
-  DefineCursor({Name = "cursor-point", Race = "human",
-    File = "ui/human/cursors/human_gauntlet.png", HotSpot = { 3,  2}, Size = {28, 32}})
-else
-  DefineCursor({Name = "cursor-point", Race = "human",
-    File = "ui/cursors/cross.png", HotSpot = {15, 15}, Size = {32, 32}})
-end
+DefineCursor({Name = "cursor-point", Race = "human",
+  File = "ui/human/cursors/human_gauntlet.png", HotSpot = { 3,  2}, Size = {28, 32}})
 DefineCursor({
   Name = "cursor-green-hair",
   Race = "human",
