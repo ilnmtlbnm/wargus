@@ -233,10 +233,14 @@ if (wargus.tileset == nil) then
     icon = CIcon:New(icons[i][1])
   end
 else
+  local icons_path = "tilesets/" .. wargus.tileset .. "/icons.png"
+  local icons_file = CanAccessFile(icons_path) and icons_path or nil
   for i = 1,table.getn(icons) do
     icon = CIcon:New(icons[i][1])
-    icon.G = CPlayerColorGraphic:New("tilesets/" .. wargus.tileset .. "/icons.png", 46, 38)
-    icon.Frame = icons[i][2]
+    if icons_file then
+      icon.G = CPlayerColorGraphic:New(icons_file, 46, 38)
+      icon.Frame = icons[i][2]
+    end
   end
 end
 
