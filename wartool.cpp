@@ -1854,7 +1854,31 @@ int ConvertImage(const char* file, int pale, int imge, int nw, int nh)
 	if (pale == 27 && imge == 28) {
 		Pal27 = palp;
 	}
-	imgp = ExtractEntry(SafeOffset(imge), NULL);
+	size_t imglen = 0;
+	imgp = ExtractEntry(SafeOffset(imge), &imglen);
+
+	// Demo guard: maindat entries 287-298 contain GFX-format sprites, not raw
+	// ConvertImg images. Detect by checking if the decompressed size is much
+	// larger than w*h+4 would require. In that case the entry is the wrong
+	// format for ConvertImg; skip it so stratagus NULL-guards produce a missing
+	// (transparent) panel rather than rainbow noise.
+	if (DemoMode && imgp && imglen > 0) {
+		int probe_w = (int)(imgp[0]) | ((int)(imgp[1]) << 8);
+		int probe_h = (int)(imgp[2]) | ((int)(imgp[3]) << 8);
+		if (probe_w > 0 && probe_h > 0 &&
+		    imglen > (size_t)(probe_w * probe_h + 4) + 8) {
+			fprintf(stderr,
+				"[wartool] entry=%d path=%s type=I reason=gfx-format-in-demo"
+				" imglen=%zu probe_w=%d probe_h=%d\n",
+				imge, file, imglen, probe_w, probe_h);
+			fflush(stderr);
+			free(imgp);
+			if (pale != 27 || imge != 28) {
+				free(palp);
+			}
+			return 0;
+		}
+	}
 
 	image = ConvertImg(imgp, &w, &h);
 
