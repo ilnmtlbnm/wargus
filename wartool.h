@@ -1269,8 +1269,9 @@ static Control Todo[] = {
 {F,0,"rezdat.war",                                     3000 __},
 
 // palette 27 for the first 3 frames, 14 for the rest
-{D,0,"ui/human/widgets",                               27, 0, 0, 0, "", ""},
-{D,0,"ui/orc/widgets",                                 27, 1, 0, 0, "", ""},
+// dusty-bytes demo: rezdat entry 27 is 432-byte metadata blob (not a palette); remapped to entry 19 (valid 768-byte palette)
+{D,0,"ui/human/widgets",                               19, 0, 0, 0, "", ""},
+{D,0,"ui/orc/widgets",                                 19, 1, 0, 0, "", ""},
 // (correct palette is #2 in maindat)
 {U,0,"ui/buttons_1",                                   14, 0 _2},
 // (correct palette is #2 in maindat)
