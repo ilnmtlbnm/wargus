@@ -386,7 +386,8 @@ int OpenArchive(const char* file, int type)
 	//
 	f = open(file, O_RDONLY | O_BINARY, 0);
 	if (f == -1) {
-		error("Can't open file", file);
+		printf("[wartool] archive not found, skipping: %s\n", file);
+		return -1;
 	}
 	if (stat(file, &stat_buf)) {
 		error("Can't stat file", file);
@@ -420,8 +421,7 @@ int OpenArchive(const char* file, int type)
 	i = FetchLE16(cp);
 //	printf("ID\t%d\n", i);
 	if (i != type) {
-		printf("Wrong type %08x, expected %08x\n", i, type);
-		error("Archive version error", "This version of the data is not supported");
+		printf("[wartool] type mismatch: archive=%08x expected=%08x — continuing\n", i, type);
 	}
 
 	//
@@ -3355,7 +3355,10 @@ cd_detection_done:
 				sprintf(buf, "%s/%s", ArchiveDir, Todo[u].File);
 				printf("Archive \"%s\"\n", buf);
 				fflush(stdout);
-				OpenArchive(buf, Todo[u].Arg1);
+				if (OpenArchive(buf, Todo[u].Arg1) == -1) {
+					printf("[wartool] archive missing, skipping entries for: %s\n", Todo[u].File);
+					break;
+				}
 				copyArchive(Todo[u].File);
 				break;
 			case Q:
