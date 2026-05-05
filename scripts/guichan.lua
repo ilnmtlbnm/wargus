@@ -1094,7 +1094,7 @@ function RunSinglePlayerTypeMenu()
   local offx = (Video.Width - 640) / 2
   local offy = (Video.Height - 480) / 2
 
-  menu:addLabel(wargus.Name .. " V" .. wargus.Version .. ", " .. wargus.Copyright, offx + 320, (Video.Height - 90) + 18*4, Fonts["small"])
+  -- dusty-bytes: footnote suppressed
   menu:addLabel(_("~<Single Player~>"), offx + 320, offy + 212 - 25)
 
   menu:addFullButton(_("~!Standard Game"), "s", offx + 208, offy + 104 + 36*3,
@@ -1179,7 +1179,7 @@ function RunSinglePlayerGameMenu()
   -- Logo
   menu:addLabel(_("~<Single Player Game Setup~>"), offx + 640/2 + 12, offy + 35)
   -- Copyright information.
-  menu:addLabel(wargus.Name .. " V" .. wargus.Version .. ", " .. wargus.Copyright, offx + 320, (Video.Height - 90) + 18*4, Fonts["small"])
+  -- dusty-bytes: footnote suppressed
   
   -- Error handling function
   function ErrorMessage(errmsg)
@@ -1606,12 +1606,28 @@ function BuildProgramStartMenu()
   local offx = (Video.Width - 640) / 2
   local offy = (Video.Height - 480) / 2
   
-  menu:addLabel(wargus.Name .. _(" V") .. wargus.Version .. ", " .. wargus.Copyright, offx + 320, (Video.Height - 90) + 18*4, Fonts["small"])
+  -- dusty-bytes: footnote suppressed
   
   menu:addFullButton(_("~!Single Player Game"), "s", offx + 208, offy + 104 + 36*0,
     function() RunSinglePlayerTypeMenu(); menu:stop(1) end)
   menu:addFullButton(_("~!Multi Player Game"), "m", offx + 208, offy + 104 + 36*1,
-                     function() RunMultiPlayerGameMenu(); menu:stop(1) end)
+                     function()
+                       local sub = WarMenu(nil, panel(4), false)
+                       sub:setSize(320, 128)
+                       sub:setPosition((Video.Width - 320) / 2, (Video.Height - 128) / 2)
+                       sub:setDrawMenusUnder(true)
+                       sub:addLabel(_("Multiplayer"), 160, 11)
+                       local l = MultiLineLabel(_("Multiplayer is not available in the browser version."))
+                       l:setFont(Fonts["large"])
+                       l:setAlignment(MultiLineLabel.CENTER)
+                       l:setVerticalAlignment(MultiLineLabel.CENTER)
+                       l:setLineWidth(300)
+                       l:setWidth(300)
+                       l:setHeight(48)
+                       sub:add(l, 10, 34)
+                       sub:addHalfButton("~!OK", "o", 108, 88, function() sub:stop() end)
+                       sub:run()
+                     end)
   menu:addFullButton(_("~!Replay Game"), "r", offx + 208, offy + 104 + 36*2,
     function() RunReplayGameMenu(); menu:stop(1) end)
   menu:addFullButton(_("~!Options"), "o", offx + 208, offy + 104 + 36*3,
