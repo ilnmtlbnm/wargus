@@ -48,6 +48,13 @@ local orcRanks = {
 }
 
 function RunResultsMenu()
+  -- dusty-bytes Phase 5.14: full GC before allocating Results Menu UI objects.
+  -- At post-victory (frame ~20400) dlmalloc has ~680KB free.  The Results Menu
+  -- creates many Lua strings and widget objects that drive dlmalloc into an
+  -- arena growth, which can corrupt Emscripten's proxy-queue while the SDL
+  -- timer thread concurrently drains it (get_tasks_for_thread OOB).
+  -- A full GC here reclaims all game-session Lua memory before the UI is built.
+  collectgarbage("collect")
   local background
   local result
   local human = (GetPlayerData(GetThisPlayer(), "RaceName") == "human")
