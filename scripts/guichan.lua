@@ -1612,19 +1612,17 @@ function BuildProgramStartMenu()
     function() RunSinglePlayerTypeMenu(); menu:stop(1) end)
   menu:addFullButton(_("~!Multi Player Game"), "m", offx + 208, offy + 104 + 36*1,
                      function() RunMultiPlayerGameMenu(); menu:stop(1) end)
-  menu:addFullButton(_("~!Replay Game"), "r", offx + 208, offy + 104 + 36*2,
-    function() RunReplayGameMenu(); menu:stop(1) end)
-  menu:addFullButton(_("~!Options"), "o", offx + 208, offy + 104 + 36*3,
+  -- [dusty-bytes] Replay Game and Load Mod removed from demo main menu
+  menu:addFullButton(_("~!Options"), "o", offx + 208, offy + 104 + 36*2,
     function() RunOptionsSubMenu(); menu:stop(1) end)
-  menu:addFullButton(_("~!Load Mod"), "l", offx + 208, offy + 104 + 36*4,
-    function() RunLoadModMenu(); menu:stop(1) end)
-  menu:addFullButton(_("Map ~!Editor"), "e", offx + 208, offy + 104 + 36*5,
+  menu:addFullButton(_("Map ~!Editor"), "e", offx + 208, offy + 104 + 36*3,
     function() RunEditorMenu(); menu:stop(1) end)
-  menu:addFullButton(_("S~!how Credits"), "h", offx + 208, offy + 104 + 36*6, RunShowCreditsMenu)
+  menu:addFullButton(_("S~!how Credits"), "h", offx + 208, offy + 104 + 36*4, RunShowCreditsMenu)
 
   -- [dusty-bytes] Exit Program would call exit(0) which traps in WASM.
   -- Show a notice instead telling the user to close the browser tab.
-  menu:addFullButton(_("E~!xit Program"), "x", offx + 208, offy + 104 + 36*7,
+  -- Pattern matches RunConfirmRestart in scripts/menus/options.lua exactly.
+  menu:addFullButton(_("E~!xit Program"), "x", offx + 208, offy + 104 + 36*5,
     function()
       local confirm = WarGameMenu(panel(4))
       confirm:resize(288, 128)
@@ -1632,10 +1630,12 @@ function BuildProgramStartMenu()
       mes:setFont(Fonts["game"])
       mes:setAlignment(MultiLineLabel.CENTER)
       mes:setVerticalAlignment(MultiLineLabel.TOP)
-      mes:setDimension(CRect(0, 0, 288, 128 - 16 - 32))
+      mes:setLineWidth(250)
+      mes:setWidth(288)
+      mes:setHeight(48)
       mes:setBackgroundColor(dark)
       confirm:add(mes, 0, 25)
-      confirm:addHalfButton(_("~!OK"), "o", 2 * (300 / 3) - 110, 128 - 16 - 27,
+      confirm:addHalfButton(_("~!OK"), "o", 2 * (300 / 3) - 110, 120 - 16 - 27,
         function() confirm:stop() end)
       confirm:run()
     end)
