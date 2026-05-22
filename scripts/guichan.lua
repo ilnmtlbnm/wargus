@@ -1658,6 +1658,13 @@ function BuildProgramStartMenu()
 
   local time = 0
   function checkRunDemo()
+    -- [dusty-bytes] Attract-mode demo recordings cause SDL TLS/function-table
+    -- corruption → crash (RuntimeError: function signature mismatch at
+    -- SDL_realloc → SDL_TLSSet) when a mousemove event arrives during StartMap.
+    -- Suppress attract mode until a proper fix is in place.
+    -- wargus.is_demo_build is set by the demo build; for the full build we
+    -- check wargus.suppress_attract which is set below.
+    if wargus.is_demo_build or wargus.suppress_attract then return end
     time = time +1
     if (time > 2000) then
       time = 0
@@ -1666,6 +1673,7 @@ function BuildProgramStartMenu()
       PlayMusic("music/Orc Briefing" .. wargus.music_extension)
     end
   end
+  wargus.suppress_attract = true  -- [dusty-bytes] suppress attract (SDL TLS crash)
   local listener = LuaActionListener(function(s) checkRunDemo() end)
   menu:addLogicCallback(listener)
 
