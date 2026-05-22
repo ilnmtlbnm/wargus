@@ -7,3 +7,6 @@ wargus.bne = false
 wargus.game_font_width = 14
 SetFontCodePage(437)
 InGameStrings = {}
+-- [dusty-bytes] demo build flag: suppress attract-mode (demo01-04.smp recordings
+-- reference full-game units absent from demo data → SDL function-table crash).
+wargus.is_demo_build = true

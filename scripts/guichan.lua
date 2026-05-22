@@ -1642,6 +1642,12 @@ function BuildProgramStartMenu()
 
   local time = 0
   function checkRunDemo()
+    -- [dusty-bytes] Attract-mode demo recordings (demo01-04.smp) were recorded
+    -- against the full game and reference unit types absent from the demo data
+    -- set.  Playing them causes SDL TLS/function-table corruption → crash on any
+    -- mousemove during the attract recording.  wargus.is_demo_build is set to
+    -- true in contrib/demo/wc2-config.lua (loaded by the demo build only).
+    if wargus.is_demo_build then return end
     time = time +1
     if (time > 2000) then
       time = 0
