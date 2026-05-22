@@ -3135,6 +3135,6 @@ msgid "tiled"
 msgstr "piastrellato"
 
 #: menus/options.lua:731
-msgid "You need to restart game to apply changes, restart now?"
-msgstr "Devi riavviare il gioco per effettuare i cambiamenti, vuoi riavviare adesso?"
+msgid "Language changed. Close and reopen this tab to apply."
+msgstr "Lingua modificata. Chiudi e riapri questa scheda per applicare la modifica."
 
