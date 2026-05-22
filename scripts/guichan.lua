@@ -1635,26 +1635,10 @@ function BuildProgramStartMenu()
     function() RunEditorMenu(); menu:stop(1) end)
   menu:addFullButton(_("S~!how Credits"), "h", offx + 208, offy + 104 + 36*4, RunShowCreditsMenu)
 
-  -- [dusty-bytes] Exit Program would call exit(0) which traps in WASM.
-  -- Show a notice instead telling the user to close the browser tab.
-  -- Pattern matches RunConfirmRestart in scripts/menus/options.lua exactly.
+  -- [dusty-bytes] Exit Program: post {action:'exit'} to shell so it navigates
+  -- back to content.html. No dialog — matches Diablo's exit pattern.
   menu:addFullButton(_("E~!xit Program"), "x", offx + 208, offy + 104 + 36*5,
-    function()
-      local confirm = WarGameMenu(panel(4))
-      confirm:resize(288, 128)
-      local mes = MultiLineLabel(_("To exit, close this browser tab."))
-      mes:setFont(Fonts["game"])
-      mes:setAlignment(MultiLineLabel.CENTER)
-      mes:setVerticalAlignment(MultiLineLabel.TOP)
-      mes:setLineWidth(250)
-      mes:setWidth(288)
-      mes:setHeight(48)
-      mes:setBackgroundColor(dark)
-      confirm:add(mes, 0, 25)
-      confirm:addHalfButton(_("~!OK"), "o", 2 * (300 / 3) - 110, 120 - 16 - 27,
-        function() confirm:stop() end)
-      confirm:run()
-    end)
+    function() DustyExit() end)
 
   local time = 0
   function checkRunDemo()
