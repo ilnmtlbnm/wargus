@@ -233,7 +233,11 @@ if (wargus.tileset == nil) then
     icon = CIcon:New(icons[i][1])
   end
 else
-  local icons_path = "tilesets/" .. wargus.tileset .. "/icons.png"
+  -- dusty-bytes: StratagusLibPath=/data.wargus; icons live at graphics/tilesets/<t>/icons.png
+  -- Use the full graphics/ prefix so LibraryFileNameImpl resolves it via StratagusLibPath/file.
+  -- The bare "tilesets/<t>/icons.png" path (no graphics/) causes CanAccessFile to return false
+  -- in the Emscripten build even though the file is present in the WASM VFS.
+  local icons_path = "graphics/tilesets/" .. wargus.tileset .. "/icons.png"
   local icons_file = CanAccessFile(icons_path) and icons_path or nil
   for i = 1,table.getn(icons) do
     icon = CIcon:New(icons[i][1])
