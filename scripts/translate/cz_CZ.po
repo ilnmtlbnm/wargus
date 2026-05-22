@@ -3139,6 +3139,6 @@ msgid "tiled"
 msgstr "Kachle"
 
 #: menus/options.lua:731
-msgid "You need to restart game to apply changes, restart now?"
-msgstr "Pro změny musíš restartovat hru, provést?"
+msgid "Language changed. Close and reopen this tab to apply."
+msgstr "Jazyk změněn. Zavřete a znovu otevřete tuto kartu pro použití změny."
 

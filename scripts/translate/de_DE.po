@@ -3134,6 +3134,6 @@ msgid "tiled"
 msgstr "gekachelt"
 
 #: menus/options.lua:731
-msgid "You need to restart game to apply changes, restart now?"
-msgstr "Sie müssen das Spiel neu starten, um Änderungen zu übernehmen, jetzt neu starten?"
+msgid "Language changed. Close and reopen this tab to apply."
+msgstr "Sprache geändert. Schließen Sie diesen Tab und öffnen Sie ihn erneut, um die Änderung anzuwenden."
 

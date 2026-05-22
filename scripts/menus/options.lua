@@ -760,7 +760,7 @@ function RunConfirmRestart(menu)
    local confirm = WarGameMenu(panel(4))
    confirm:resize(288, 128)
 
-   local mes = MultiLineLabel(_("You need to restart game to apply changes, restart now?"))
+   local mes = MultiLineLabel(_("Language changed. Close and reopen this tab to apply."))
    mes:setFont(Fonts["game"])
    mes:setAlignment(MultiLineLabel.CENTER)
    mes:setVerticalAlignment(MultiLineLabel.TOP)
@@ -770,14 +770,7 @@ function RunConfirmRestart(menu)
    mes:setBackgroundColor(dark)
    confirm:add(mes, 0, 25)
 
-   confirm:addHalfButton(_("~!Yes"), "y", 1 * (300 / 3) - 90, 120 - 16 - 27,
-			 function()
-			    confirm:stop()
-			    menu:stop()
-			    RestartStratagus()
-   end)
-
-   confirm:addHalfButton(_("~!No"), "n", 3 * (300 / 3) - 130, 120 - 16 - 27,
+   confirm:addHalfButton(_("~!OK"), "o", 2 * (300 / 3) - 110, 120 - 16 - 27,
 			 function() confirm:stop() end)
 
    return confirm:run()

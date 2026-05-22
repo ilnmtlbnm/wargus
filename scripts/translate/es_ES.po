@@ -3141,7 +3141,6 @@ msgid "tiled"
 msgstr ""
 
 #: menus/options.lua:731
-#, fuzzy
-msgid "You need to restart game to apply changes, restart now?"
-msgstr "Debe reiniciar el juego para aplicar los cambios, ¿salir ahora?"
+msgid "Language changed. Close and reopen this tab to apply."
+msgstr "Idioma cambiado. Cierre y vuelva a abrir esta pestaña para aplicar el cambio."
 
