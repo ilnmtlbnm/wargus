@@ -465,12 +465,11 @@ CompleteMissingValues(wc2.preferences, defaultPreferences)
 SavePreferences()
 
 -- [dusty-bytes] Skip logo.ogv and gameintro.ogv: demo data does not ship these
--- videos. Keep black_title.png (1-second blank) which the engine needs as its
--- first title entry before rendering anything, then go straight to title.png.
+-- videos. Demo title.png is a byte-identical copy of black_title.png (no real
+-- splash art in shareware data), so skip it entirely. One black frame is enough
+-- for the engine to initialise before going straight to the main menu.
 SetTitleScreens(
-  {Image = "ui/black_title.png", Timeout = 1},
-  {Image = "ui/title.png", StretchMode = (wc2 and wc2.preferences and wc2.preferences.KeepRatio and "keep-ratio") or "stretch",
-  Music = "music/Orc Briefing" .. wargus.music_extension, Timeout = 20}
+  {Image = "ui/black_title.png", Timeout = 1}
 )
 
 InitFuncs:add(function()
