@@ -1612,17 +1612,15 @@ function BuildProgramStartMenu()
     function() RunSinglePlayerTypeMenu(); menu:stop(1) end)
   menu:addFullButton(_("~!Multi Player Game"), "m", offx + 208, offy + 104 + 36*1,
                      function() RunMultiPlayerGameMenu(); menu:stop(1) end)
-  -- [dusty-bytes] Replay Game and Load Mod removed from demo main menu
+  -- [dusty-bytes] Replay Game, Load Mod, and Map Editor removed from demo main menu
   menu:addFullButton(_("~!Options"), "o", offx + 208, offy + 104 + 36*2,
     function() RunOptionsSubMenu(); menu:stop(1) end)
-  menu:addFullButton(_("Map ~!Editor"), "e", offx + 208, offy + 104 + 36*3,
-    function() RunEditorMenu(); menu:stop(1) end)
-  menu:addFullButton(_("S~!how Credits"), "h", offx + 208, offy + 104 + 36*4, RunShowCreditsMenu)
+  menu:addFullButton(_("S~!how Credits"), "h", offx + 208, offy + 104 + 36*3, RunShowCreditsMenu)
 
   -- [dusty-bytes] Exit Program would call exit(0) which traps in WASM.
   -- Show a notice instead telling the user to close the browser tab.
   -- Pattern matches RunConfirmRestart in scripts/menus/options.lua exactly.
-  menu:addFullButton(_("E~!xit Program"), "x", offx + 208, offy + 104 + 36*5,
+  menu:addFullButton(_("E~!xit Program"), "x", offx + 208, offy + 104 + 36*4,
     function()
       local confirm = WarGameMenu(panel(4))
       confirm:resize(288, 128)
