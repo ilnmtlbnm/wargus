@@ -1622,8 +1622,23 @@ function BuildProgramStartMenu()
     function() RunEditorMenu(); menu:stop(1) end)
   menu:addFullButton(_("S~!how Credits"), "h", offx + 208, offy + 104 + 36*6, RunShowCreditsMenu)
 
+  -- [dusty-bytes] Exit Program would call exit(0) which traps in WASM.
+  -- Show a notice instead telling the user to close the browser tab.
   menu:addFullButton(_("E~!xit Program"), "x", offx + 208, offy + 104 + 36*7,
-    function() menu:stop() end)
+    function()
+      local confirm = WarGameMenu(panel(4))
+      confirm:resize(288, 128)
+      local mes = MultiLineLabel(_("To exit, close this browser tab."))
+      mes:setFont(Fonts["game"])
+      mes:setAlignment(MultiLineLabel.CENTER)
+      mes:setVerticalAlignment(MultiLineLabel.TOP)
+      mes:setDimension(CRect(0, 0, 288, 128 - 16 - 32))
+      mes:setBackgroundColor(dark)
+      confirm:add(mes, 0, 25)
+      confirm:addHalfButton(_("~!OK"), "o", 2 * (300 / 3) - 110, 128 - 16 - 27,
+        function() confirm:stop() end)
+      confirm:run()
+    end)
 
   local time = 0
   function checkRunDemo()
