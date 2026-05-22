@@ -465,9 +465,10 @@ CompleteMissingValues(wc2.preferences, defaultPreferences)
 SavePreferences()
 
 -- [dusty-bytes] Skip logo.ogv and gameintro.ogv: demo data does not ship these
--- videos; missing-asset stall is especially long on Firefox. Go straight to the
--- title screen.
+-- videos. Keep black_title.png (1-second blank) which the engine needs as its
+-- first title entry before rendering anything, then go straight to title.png.
 SetTitleScreens(
+  {Image = "ui/black_title.png", Timeout = 1},
   {Image = "ui/title.png", StretchMode = (wc2 and wc2.preferences and wc2.preferences.KeepRatio and "keep-ratio") or "stretch",
   Music = "music/Orc Briefing" .. wargus.music_extension, Timeout = 20}
 )
